@@ -113,7 +113,7 @@ def parseStandardFrame(frameData):
 
     # Verify the total packet length to detect transmission error that will cause subsequent frames to dropped
     if (totalLenCheck != totalPacketLen):
-        log.warning('Frame packet length read is not equal to totalPacketLen in frame header. Subsequent frames may be dropped.')
+        # log.warning('Frame packet length read is not equal to totalPacketLen in frame header. Subsequent frames may be dropped.')
         outputDict['error'] = 3
 
     return outputDict
