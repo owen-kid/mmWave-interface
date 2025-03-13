@@ -5,8 +5,8 @@ from parser import *
 
 class BoardInterface:
     # Update with your new COM ports and baud rates
-    CONFIG_PORT = "COM5"  # Replace with your configuration COM port
-    DATA_PORT = "COM10"    # Replace with your data COM port
+    CONFIG_PORT = "/dev/ttyUSB0"  # Replace with your configuration COM port
+    DATA_PORT = "/dev/ttyUSB1"    # Replace with your data COM port
     BAUD_RATE_CONFIG = 115200
     BAUD_RATE_DATA = 921600
     TIMEOUT = 2
