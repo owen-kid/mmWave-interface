@@ -1,9 +1,10 @@
+
 import socket
 import time
 import json
 import struct
 import threading
-
+import numpy as np
 # Import your existing BoardInterface class and other dependencies
 # from board_interface import BoardInterface
 
@@ -20,7 +21,7 @@ def connect_to_server(server_addr, port=5025):
         return None
 
 # Function to send data to the server
-def send_data(sock, hr, br):
+def send_data(sock, hr, br, patient_detected):
     """Send heart rate and breath rate data to the server"""
     if not sock:
         return False
@@ -30,6 +31,7 @@ def send_data(sock, hr, br):
         data = json.dumps({
             "heartRate": hr,
             "breathRate": br,
+            "pd": patient_detected, 
             "timestamp": time.time() * 1000
         })
         
@@ -66,23 +68,54 @@ def read_from_mmwave_sensor():
         
         bi = BoardInterface()
         bi.setup_ports()
-        bi.send_config(bi.config, bi.config_file)
+        #bi.send_config(bi.config, bi.config_file)
         
         parser = UARTParser(type="DoubleCOMPort")
         parser.dataCom = bi.data
-        
-        while True:
+        patient_detected = 0 
+        br = 0
+        hr = 0
+    except Exception as e:
+        print(f"Failed to setup")
+
+    while True:
+        try:
             output = parser.readAndParseUartDoubleCOMPort()
+            # print("\n\n" + str(output) + "\n\n")
+
+            point_cloud = output.get('pointCloud', np.array([]))
+
+            # print(f"Point cloud shape: {point_cloud.shape}")
+
+            if point_cloud.shape[0] == 0:  # No points detected
+                #  print("-")
+                if patient_detected > -30:
+                    patient_detected = patient_detected - 1
+                continue
+            else:
+                # print("+")
+                if patient_detected < 10:
+                    patient_detected = patient_detected + 1
+
+            if patient_detected < 0:
+                print("patient not detected")
+                yield hr, br, patient_detected
+            else: 
+                print("patient detected")
+                yield hr, br, patient_detected
+
             if 'vitals' in output:
                 hr = output['vitals']['heartRate']
                 br = output['vitals']['breathRate']
-                yield hr, br
+                yield hr, br, patient_detected
             time.sleep(0.1)
-    except Exception as e:
-        print(f"Error reading from sensor: {e}")
-        # Fall back to simulation if sensor fails
-        for hr, br in simulate_sensor_data():
-            yield hr, br
+
+        except Exception as e:
+            print(f"Failed to while running")
+
+           # Fall back to simulation if sensor fails
+        # for hr, br in simulate_sensor_data():
+           #  yield hr, br
 
 # Main function to read from your radar sensor and send data to server
 def main():
@@ -108,9 +141,9 @@ def main():
             data_source = simulate_sensor_data()
         
         # Process data and send to server
-        for hr, br in data_source:
-            print(f"Sending data - HR: {hr:.1f}, BR: {br:.1f}")
-            if not send_data(sock, hr, br):
+        for hr, br, patient_detected in data_source:
+            print(f"Sending data - HR: {hr:.1f}, BR: {br:.1f}, PD: {patient_detected}")
+            if not send_data(sock, hr, br, patient_detected):
                 print("Connection lost. Attempting to reconnect...")
                 sock = connect_to_server(SERVER_ADDR, SERVER_PORT)
                 if not sock:
